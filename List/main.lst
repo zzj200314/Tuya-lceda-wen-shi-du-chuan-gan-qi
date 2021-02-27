@@ -1,0 +1,211 @@
+C51 COMPILER V9.60.0.0   MAIN                                                              02/18/2021 10:10:07 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Obj\main.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE src\main.c LARGE OPTIMIZE(9,SPEED) BROWSE INCDIR(.\;.\src;.\mcu_sdk) DEB
+                    -UG OBJECTEXTEND PRINT(.\List\main.lst) TABS(2) OBJECT(.\Obj\main.obj)
+
+line level    source
+
+   1          /******************************************************************************
+   2          文件名称: Main.c
+   3          文件标识: STC8A8K64S4A12
+   4          摘    要: 主函数
+   5          当前版本: V1.0  
+   6          完成日期: 2021.02.07
+   7          *******************************************************************************/
+   8          #define MAINWORK_GLOBALS
+   9          #include "include.h"
+  10          #include "wifi.h"
+  11          
+  12          
+  13          volatile uint8_t is_read_time = 0;
+  14          
+  15          void Delay100ms()   //@11.0592MHz
+  16          {
+  17   1        unsigned char i, j, k;
+  18   1      
+  19   1        _nop_();
+  20   1        i = 6;
+  21   1        j = 157;
+  22   1        k = 59;
+  23   1        do
+  24   1        {
+  25   2          do
+  26   2          {
+  27   3            while (--k);
+  28   3          } while (--j);
+  29   2        } while (--i);
+  30   1      }
+  31          /*****************************************************************************
+  32          函数名称 : Bsp_Init
+  33          功能描述 : 初始化硬件
+  34          输入参数 : 无
+  35          返回参数 : 无
+  36          使用说明 : 无
+  37          *****************************************************************************/
+  38          static void Bsp_Init(void)
+  39          {
+  40   1        uart3_init();        //串口3初始化
+  41   1        wifi_protocol_init();//WiFi模组初始化
+  42   1        I2C_init();          //I2C初始化
+  43   1        OLED_Init();         //OLED初始化
+  44   1        OLED_Clear();        //OLED清屏
+  45   1        SHT_Init();          //SHT3X初始化
+  46   1        timer0_init();       //定时器初始化 
+  47   1        key_init();
+  48   1      }
+  49          /*****************************************************************************
+  50          函数名称 : Boot_animation
+  51          功能描述 : 开机动画
+  52          输入参数 : 无
+  53          返回参数 : 无
+  54          使用说明 : 无
+C51 COMPILER V9.60.0.0   MAIN                                                              02/18/2021 10:10:07 PAGE 2   
+
+  55          *****************************************************************************/
+  56          void Boot_animation()
+  57          {
+  58   1        uint16_t i,j;
+  59   1        for(i=0;i<48;i++)  //i总帧数
+  60   1        { 
+  61   2          for(j=0;j<8;j++)
+  62   2          {
+  63   3            OLED_SetPos(0,j);
+  64   3            OLED_OLED_WR_Byte_con(table+128*(j+i*8),128);
+  65   3          }
+  66   2          Delay100ms();
+  67   2        }   
+  68   1      }
+  69          
+  70          void welcome()
+  71          {
+  72   1        //OLED_DrawBMP(0,0,16,1,UI);
+  73   1        //OLED_ShowStr(0,1,"Hello World! ",16);
+  74   1        OLED_ShowCHinese(0,4,0);
+  75   1        OLED_ShowCHinese(16,4,1);
+  76   1        OLED_ShowCHinese(72,4,2);
+  77   1        OLED_ShowCHinese(88,4,1);
+  78   1        OLED_ShowCHinese(0,6,3);
+  79   1        OLED_ShowCHinese(16,6,4);
+  80   1        OLED_ShowCHinese(32,6,0);
+  81   1        OLED_ShowCHinese(48,6,1);
+  82   1      }
+  83          /*****************************************************************************
+  84          函数名称 : wifi_work_state_led
+  85          功能描述 : wifi状态查询
+  86          输入参数 : 无
+  87          返回参数 : 无
+  88          使用说明 : 无
+  89          *****************************************************************************/
+  90          void wifi_work_state_led(void)
+  91          {
+  92   1        uint8_t wifi_state = mcu_get_wifi_work_state();
+  93   1        switch(wifi_state)
+  94   1        {
+  95   2        case SMART_CONFIG_STATE:            //smartconfig配置状态
+  96   2          OLED_ShowStr(0,0,"  S! ",8);
+  97   2          break;
+  98   2          
+  99   2        case AP_STATE:                      //AP配置状态
+ 100   2          OLED_ShowStr(0,0,"  A! ",8);
+ 101   2          break;
+ 102   2          
+ 103   2        case WIFI_NOT_CONNECTED:            //WIFI配置成功但未连上路由器
+ 104   2          OLED_DrawBMP(0,0,24,1,UI1);
+ 105   2          OLED_ShowStr(24,0,"  ",8);
+ 106   2          break;
+ 107   2          
+ 108   2        case WIFI_CONNECTED:                //WIFI配置成功且连上路由器
+ 109   2          OLED_DrawBMP(0,0,24,1,UI2);
+ 110   2          OLED_ShowStr(24,0,"  ",8);
+ 111   2          break;
+ 112   2          
+ 113   2        case WIFI_CONN_CLOUD:               //WIFI已经连接上云服务器
+ 114   2          OLED_DrawBMP(0,0,24,1,UI3);
+ 115   2          OLED_ShowStr(24,0,"  ",8);
+ 116   2          break;
+C51 COMPILER V9.60.0.0   MAIN                                                              02/18/2021 10:10:07 PAGE 3   
+
+ 117   2          
+ 118   2        case WIFI_LOW_POWER:                //WIFI处于低功耗模式
+ 119   2          OLED_DrawBMP(0,0,24,1,UI4);
+ 120   2          OLED_ShowStr(24,0,"  ",8);
+ 121   2          break;
+ 122   2          
+ 123   2        case SMART_AND_AP_STATE:            //WIFI smartconfig&AP 模式
+ 124   2          OLED_ShowStr(0,0,"  SA ",8);
+ 125   2          break;
+ 126   2          
+ 127   2        default:                            //未知状态
+ 128   2          OLED_ShowStr(0,0,"error",8);
+ 129   2         break;
+ 130   2        }
+ 131   1      }
+ 132          /*****************************************************************************
+ 133          函数名称 : read_sensor
+ 134          功能描述 : 读取传感器
+ 135          输入参数 : 无
+ 136          返回参数 : 无
+ 137          使用说明 : 无
+ 138          *****************************************************************************/
+ 139          static void read_sensor(void)
+ 140          {
+ 141   1        Get_Voltage();         //读取电池电压
+ 142   1        sht30_read();          //读取温湿度
+ 143   1      }
+ 144          /*****************************************************************************
+ 145          函数名称 : main
+ 146          功能描述 : 主函数
+ 147          输入参数 : 无
+ 148          返回参数 : 无
+ 149          使用说明 : 无
+ 150          *****************************************************************************/
+ 151          void main(void)
+ 152          {
+ 153   1        //初始化
+ 154   1        Bsp_Init();
+ 155   1        
+ 156   1        //开机动画
+ 157   1        Boot_animation();
+ 158   1        OLED_Clear();
+ 159   1        
+ 160   1        Delay100ms();
+ 161   1        welcome();
+ 162   1        read_sensor();
+ 163   1        
+ 164   1        //主循环
+ 165   1        while(1)
+ 166   1        {
+ 167   2          //wifi数据处理
+ 168   2          wifi_uart_service();
+ 169   2          //按键扫描
+ 170   2          key_scan();
+ 171   2          //wifi状态指示灯
+ 172   2          wifi_work_state_led();
+ 173   2          if(is_read_time == 1)                                                       //15秒读取一次
+ 174   2          {
+ 175   3            //读取传感器并上报
+ 176   3            read_sensor();                                 
+ 177   3            is_read_time = 0;
+ 178   3          }
+C51 COMPILER V9.60.0.0   MAIN                                                              02/18/2021 10:10:07 PAGE 4   
+
+ 179   2        }
+ 180   1        
+ 181   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    466    ----
+   CONSTANT SIZE    =     27    ----
+   XDATA SIZE       =     11       4
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

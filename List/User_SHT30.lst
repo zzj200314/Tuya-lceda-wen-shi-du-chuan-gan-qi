@@ -1,0 +1,158 @@
+C51 COMPILER V9.60.0.0   USER_SHT30                                                        02/18/2021 10:10:07 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE USER_SHT30
+OBJECT MODULE PLACED IN .\Obj\User_SHT30.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE src\User_SHT30.c LARGE OPTIMIZE(9,SPEED) BROWSE INCDIR(.\;.\src;.\mcu_sd
+                    -k) DEBUG OBJECTEXTEND PRINT(.\List\User_SHT30.lst) TABS(2) OBJECT(.\Obj\User_SHT30.obj)
+
+line level    source
+
+   1          /******************************************************************************
+   2          文件名称: User_SHT30.c
+   3          文件标识: STC8A8K64S4A12
+   4          摘    要: SHT30操作函数
+   5          当前版本: V1.0.1  
+   6          完成日期: 2021.02.03
+   7          *******************************************************************************/
+   8          #define USER_SHT30_GLOBALS
+   9          #include "include.h"
+  10          #include "wifi.h"
+  11          
+  12          
+  13          /*****************************************************************************
+  14          函数名称 : SHT_Init
+  15          功能描述 : SHT30初始化
+  16          输入参数 : 无
+  17          返回参数 : 无
+  18          使用说明 : 无
+  19          *****************************************************************************/
+  20          void SHT_Init()
+  21          {
+  22   1        Start();
+  23   1        SendData(SHT30_Address);
+  24   1        SendACK();
+  25   1        SendData(PERIODIC_MODE_10S>>8);//设置周期模式
+  26   1        SendACK();
+  27   1        SendData(PERIODIC_MODE_10S);
+  28   1        SendACK();
+  29   1        Stop();
+  30   1      }
+  31          /*****************************************************************************
+  32          函数名称 : sht_crc
+  33          功能描述 : crc-8校验
+  34          输入参数 : 无
+  35          返回参数 : 无
+  36          使用说明 : 无
+  37          *****************************************************************************/ 
+  38          uint8_t sht_crc(uint8_t *shtdata, uint8_t count)
+  39          {
+  40   1        uint8_t crc_bit;        // bit mask
+  41   1        uint8_t crc = 0xFF;     // calculated checksum
+  42   1        uint8_t byteCtr;        // byte counter
+  43   1        
+  44   1        // calculates 8-Bit checksum with given polynomial
+  45   1        for(byteCtr = 0; byteCtr < count; ++byteCtr)
+  46   1        {
+  47   2          crc ^= (shtdata[byteCtr]);
+  48   2          for(crc_bit = 8; crc_bit > 0; --crc_bit) //crc校验，最高位是1就^0x31
+  49   2          {
+  50   3            if(crc & 0x80)
+  51   3              crc = (crc << 1) ^ 0x31;
+  52   3            else
+  53   3              crc = (crc << 1);
+  54   3          }
+C51 COMPILER V9.60.0.0   USER_SHT30                                                        02/18/2021 10:10:07 PAGE 2   
+
+  55   2        }
+  56   1        return crc;
+  57   1      }
+  58          /*****************************************************************************
+  59          函数名称 : sht30_read
+  60          功能描述 : SHT30数据读取，通过oled显示
+  61          输入参数 : 无
+  62          返回参数 : 五
+  63          使用说明 : 无
+  64          *****************************************************************************/
+  65          void sht30_read()
+  66          {
+  67   1        uint8_t result[10];
+  68   1        uint16_t St;     //传感器的温度原始值
+  69   1        uint16_t Srh;    //传感器的湿度原始值
+  70   1        uint16_t e;      //计算出的水汽压
+  71   1        signed int T;
+  72   1        int AT;
+  73   1        
+  74   1        Start();
+  75   1        SendData(SHT30_Address);
+  76   1        SendACK();
+  77   1        SendData(0xe0);
+  78   1        SendACK();
+  79   1        SendData(0x00);
+  80   1        SendACK();
+  81   1        
+  82   1        Start();   //开始读数据
+  83   1        SendData(SHT30_Address+1);
+  84   1        SendACK();
+  85   1        result[0] = RecvData();  //读到的数据暂存在result数组里
+  86   1        SendACK();
+  87   1        result[1] = RecvData();
+  88   1        SendACK();
+  89   1        result[2] = RecvData();
+  90   1        SendACK();
+  91   1        result[3] = RecvData();
+  92   1        SendACK();
+  93   1        result[4] = RecvData();
+  94   1        SendACK();
+  95   1        result[5] = RecvData();
+  96   1        Stop();
+  97   1        
+  98   1        if((sht_crc(result, 2)==result[2]) && (sht_crc(result+3, 2)==result[5]))//crc校验
+  99   1        {
+ 100   2          St = (result[0]<<8) | result[1];  //温度拼接
+ 101   2          Srh = (result[3]<<8) | result[4]; //湿度拼接
+ 102   2          FlashBuffer.temper = (-450+1750*(1.0*St/65535));  //10倍实际温度，上报需要
+ 103   2          T = FlashBuffer.temper/10;                      //温度计算
+ 104   2          FlashBuffer.humidity = 100*(1.0*Srh/65535);         //湿度计算
+ 105   2          e = (FlashBuffer.humidity/100)*6.105*exp(17.27*T/(237.7+T));//水气压计算
+ 106   2          AT = 1.07*T+0.2*e-2.7;            //体感温度计算
+ 107   2          
+ 108   2          
+ 109   2          mcu_dp_value_update(DPID_TEMP_CURRENT,FlashBuffer.temper);     //VALUE型数据上报;
+ 110   2          mcu_dp_value_update(DPID_HUMIDITY_VALUE,FlashBuffer.humidity); //VALUE型数据上报;
+ 111   2          OLED_ShowNum(32,4,T,2,16);   //显示温度
+ 112   2          if(T>0)
+ 113   2            OLED_ShowChar(48,4,'`',16);
+ 114   2          else
+ 115   2            OLED_ShowChar(56,4,'`',16);
+ 116   2          
+C51 COMPILER V9.60.0.0   USER_SHT30                                                        02/18/2021 10:10:07 PAGE 3   
+
+ 117   2          OLED_ShowNum(104,4,FlashBuffer.humidity,2,16);  //显示湿度
+ 118   2          OLED_ShowChar(120,4,'%',16);
+ 119   2          
+ 120   2          OLED_ShowNum(64,6,AT,2,16);  //显示体感温度
+ 121   2          if(AT>0)
+ 122   2            OLED_ShowChar(80,6,'`',16);
+ 123   2          else
+ 124   2            OLED_ShowChar(88,6,'`',16);
+ 125   2        }
+ 126   1        else  //校验失败
+ 127   1        {
+ 128   2          OLED_ShowStr(32,4,"error",16);  //显示错误
+ 129   2        }
+ 130   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    804    ----
+   CONSTANT SIZE    =      6    ----
+   XDATA SIZE       =   ----      21
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

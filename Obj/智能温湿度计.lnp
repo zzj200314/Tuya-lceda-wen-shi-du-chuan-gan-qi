@@ -1,0 +1,14 @@
+".\Obj\main.obj",
+".\Obj\User_ADC.obj",
+".\Obj\User_I2C.obj",
+".\Obj\User_Key.obj",
+".\Obj\User_OLED.obj",
+".\Obj\User_SHT30.obj",
+".\Obj\User_Uart.obj",
+".\Obj\User_Timer.obj",
+".\Obj\codetab.obj",
+".\Obj\mcu_api.obj",
+".\Obj\protocol.obj",
+".\Obj\system.obj" 
+TO ".\Obj\智能温湿度计" 
+PRINT(".\List\智能温湿度计.m51") RAMSIZE(256) 

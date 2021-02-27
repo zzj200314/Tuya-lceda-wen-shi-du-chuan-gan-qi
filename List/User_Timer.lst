@@ -1,0 +1,100 @@
+C51 COMPILER V9.60.0.0   USER_TIMER                                                        02/18/2021 10:10:07 PAGE 1   
+
+
+C51 COMPILER V9.60.0.0, COMPILATION OF MODULE USER_TIMER
+OBJECT MODULE PLACED IN .\Obj\User_Timer.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE src\User_Timer.c LARGE OPTIMIZE(9,SPEED) BROWSE INCDIR(.\;.\src;.\mcu_sd
+                    -k) DEBUG OBJECTEXTEND PRINT(.\List\User_Timer.lst) TABS(2) OBJECT(.\Obj\User_Timer.obj)
+
+line level    source
+
+   1          /******************************************************************************
+   2          文件名称: User_Timer.c
+   3          文件标识: STC8A8K64S4A12
+   4          摘    要: Timer用户函数
+   5          当前版本: V1.0  
+   6          完成日期: 2021.02.06
+   7          *******************************************************************************/
+   8          #define USER_TIMER_GLOBAL
+   9          #include "include.h"
+  10          
+  11          static unsigned long Timer_Value = 0;
+  12          static unsigned long Timer_Sec_Value = 0;
+  13          
+  14          
+  15          /*****************************************************************************
+  16          函数名称 : timer0_init
+  17          功能描述 : timer0初始化
+  18          输入参数 : 无
+  19          返回参数 : 无
+  20          使用说明 : 10毫秒@11.0592MHz
+  21          *****************************************************************************/
+  22          void timer0_init(void)
+  23          {
+  24   1        AUXR &= 0x7F;                                                               //定时器时钟12T模式
+  25   1        TMOD &= 0xF0;                                                               //设置定时器模式
+  26   1        TL0 = 0x00;                                                                 //设置定时初值
+  27   1        TH0 = 0xDC;                                                                 //设置定时初值
+  28   1        TF0 = 0;                                                                    //清除TF0标志
+  29   1        TR0 = 1;                                                                    //定时器0开始计时
+  30   1        ET0 = 1;
+  31   1        //
+  32   1        Timer_Value = 0;
+  33   1        FlashBuffer.SAMPLING = 15;
+  34   1      }
+  35          /*****************************************************************************
+  36          函数名称 : timer0_isr_handle
+  37          功能描述 : timer0中断处理函数
+  38          输入参数 : 无
+  39          返回参数 : 无
+  40          使用说明 : 10毫秒@11.0592MHz
+  41          *****************************************************************************/
+  42          void timer0_isr_handle(void) interrupt 1
+  43          {
+  44   1        extern uint8_t is_read_time;
+  45   1      
+  46   1        Timer_Value ++;
+  47   1        if((Timer_Value % 100) == 0)
+  48   1        {
+  49   2          Timer_Sec_Value ++;
+  50   2          if(Timer_Sec_Value % FlashBuffer.SAMPLING == 0)
+  51   2          {
+  52   3            //X秒计时
+  53   3            is_read_time = 1;
+  54   3          }
+C51 COMPILER V9.60.0.0   USER_TIMER                                                        02/18/2021 10:10:07 PAGE 2   
+
+  55   2          
+  56   2          if(Timer_Sec_Value >= 60)
+  57   2          {
+  58   3            Timer_Sec_Value = 0;
+  59   3            
+  60   3            FlashBuffer.run_time ++;
+  61   3          }
+  62   2        }
+  63   1      }
+  64          /*****************************************************************************
+  65          函数名称 : get_count_value
+  66          功能描述 : 获取Timer0计数值
+  67          输入参数 : 无
+  68          返回参数 : Timer_Value
+  69          使用说明 : 无
+  70          *****************************************************************************/
+  71          unsigned long get_count_value(void)
+  72          {
+  73   1        return Timer_Value;
+  74   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    272    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =      8    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
